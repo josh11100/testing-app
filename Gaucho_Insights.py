@@ -184,8 +184,16 @@ section[data-testid="stMain"] > div:first-child {
     .stTabs [data-baseweb="tab-list"] { gap: 12px !important; }
 }
 
-/* Prevent horizontal scroll on the whole app */
-[data-testid="stAppViewContainer"] {
+/* Prevent column overflow at any screen size */
+[data-testid="stColumn"] {
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+[data-testid="stColumn"] > div {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    word-break: break-word !important;
+}
     overflow-x: hidden !important;
 }
 section[data-testid="stMain"] > div {
@@ -1264,7 +1272,6 @@ let f = 0;
 
     # ── HOME ────────────────────────────────────────────────────────────────
     with tab_home:
-        # On mobile Streamlit stacks columns automatically via CSS above
         col_main, col_side = st.columns([5, 2], gap="large")
         with col_main:
             render_welcome_card()
@@ -1274,21 +1281,23 @@ let f = 0;
             render_linkedin_card()
             st.markdown("""
 <div style="background:rgba(0,18,40,.7);border:1px solid rgba(255,215,0,.2);
-            border-radius:18px;padding:18px 20px;margin-top:16px;font-family:'Rajdhani',sans-serif;">
-  <div style="font-family:'Orbitron',sans-serif;font-size:.75em;color:#FFD700;
-              margin-bottom:12px;letter-spacing:1px;">GRADING LEGEND</div>
-  <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">
-    <span style="background:#2ECC40;color:#000;padding:3px 10px;border-radius:20px;
-                 font-weight:700;font-size:.82em;white-space:nowrap;">EASY</span>
-    <span style="color:#8ab;font-size:.88em;">Avg GPA &gt; 3.5</span></div>
-  <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">
-    <span style="background:#0074D9;color:#fff;padding:3px 10px;border-radius:20px;
-                 font-weight:700;font-size:.82em;white-space:nowrap;">CHILL</span>
-    <span style="color:#8ab;font-size:.88em;">Avg GPA 3.1 – 3.5</span></div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="background:#FF4136;color:#fff;padding:3px 10px;border-radius:20px;
-                 font-weight:700;font-size:.82em;white-space:nowrap;">STRESSFUL</span>
-    <span style="color:#8ab;font-size:.88em;">Avg GPA &lt; 3.0</span></div>
+            border-radius:18px;padding:16px;margin-top:16px;
+            font-family:'Rajdhani',sans-serif;overflow:hidden;word-break:break-word;">
+  <div style="font-family:'Orbitron',sans-serif;font-size:.72em;color:#FFD700;
+              margin-bottom:12px;letter-spacing:1px;white-space:nowrap;
+              overflow:hidden;text-overflow:ellipsis;">GRADING LEGEND</div>
+  <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="background:#2ECC40;color:#000;padding:3px 8px;border-radius:20px;
+                 font-weight:700;font-size:.78em;white-space:nowrap;flex-shrink:0;">EASY</span>
+    <span style="color:#8ab;font-size:.82em;">Avg GPA &gt; 3.5</span></div>
+  <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="background:#0074D9;color:#fff;padding:3px 8px;border-radius:20px;
+                 font-weight:700;font-size:.78em;white-space:nowrap;flex-shrink:0;">CHILL</span>
+    <span style="color:#8ab;font-size:.82em;">Avg GPA 3.1 – 3.5</span></div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="background:#FF4136;color:#fff;padding:3px 8px;border-radius:20px;
+                 font-weight:700;font-size:.78em;white-space:nowrap;flex-shrink:0;">STRESSFUL</span>
+    <span style="color:#8ab;font-size:.82em;">Avg GPA &lt; 3.0</span></div>
 </div>""", unsafe_allow_html=True)
 
     # ── SEARCH TOOL ─────────────────────────────────────────────────────────
@@ -1378,7 +1387,7 @@ let f = 0;
 
                     rmp_pill = ('<span style="font-size:.7em;color:#FFD700;background:rgba(255,215,0,.08);'
                                 'border:1px solid rgba(255,215,0,.22);padding:2px 10px;border-radius:12px;'
-                                'margin-left:8px;">( ˘▽˘)っ♨ RMP</span>' if has_rmp else "")
+                                'margin-left:8px;">RMP</span>' if has_rmp else "")
                     txt_col = "#000" if status == "EASY" else "#fff"
                     st.markdown(
                         f'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">'
