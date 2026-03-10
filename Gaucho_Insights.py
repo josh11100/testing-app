@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Gaucho Insights", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="Gaucho Insights", layout="wide", page_icon="🎓", menu_items={})
 
 # ─────────────────────────────────────────────
 #  GLOBAL CSS
@@ -20,7 +20,16 @@ st.markdown("""
 .stApp { background: #000814 !important; color: #fff !important; }
 html, body { background: #000814 !important; }
 
-/* Make sure all Streamlit content sits above the fixed background iframe */
+/* Hide the app filename shown in sidebar header */
+[data-testid="stSidebarHeader"],
+header[data-testid="stHeader"],
+#MainMenu,
+.stDeployButton,
+[data-testid="stToolbar"],
+footer { visibility: hidden !important; height: 0 !important; }
+
+/* Also hide the top app name text */
+[data-testid="stAppViewBlockContainer"] > div:first-child { display: none !important; }
 .stApp > * { position: relative; z-index: 1; }
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
