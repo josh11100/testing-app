@@ -549,20 +549,29 @@ def render_info_card():
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Rajdhani:wght@500;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}body{background:transparent;overflow:hidden}
-.sc{perspective:900px;width:100%;height:250px;display:flex;justify-content:center;align-items:center}
-.cd{width:90%;height:215px;background:linear-gradient(140deg,#001428 0%,#002255 60%,#001e4a 100%);
+.sc{perspective:900px;width:100%;height:auto;min-height:200px;display:flex;justify-content:center;align-items:center;padding:8px 0}
+.cd{width:90%;background:linear-gradient(140deg,#001428 0%,#002255 60%,#001e4a 100%);
     border-radius:22px;border:1.5px solid rgba(255,215,0,.5);
     box-shadow:0 20px 50px rgba(0,0,0,.6),inset 0 0 40px rgba(0,116,217,.07);
     transform-style:preserve-3d;transition:transform .1s ease;
-    display:flex;flex-direction:column;justify-content:space-between;padding:24px 26px;color:white}
-.t{font-family:'Orbitron',sans-serif;font-size:.95em;font-weight:700;color:#FFD700;margin-bottom:4px}
-.b{font-family:'Rajdhani',sans-serif;font-size:1.02em;line-height:1.7;color:#8ab}
-.h{font-family:'Rajdhani',sans-serif;font-size:.8em;color:rgba(255,255,255,.2);
-   background:rgba(255,255,255,.04);border-radius:8px;padding:6px 10px;text-align:center}
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:20px 22px;color:white;word-break:break-word;overflow:hidden}
+.t{font-family:'Orbitron',sans-serif;font-size:clamp(.75em,.9vw,.95em);font-weight:700;
+   color:#FFD700;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b{font-family:'Rajdhani',sans-serif;font-size:clamp(.88em,1.2vw,1.02em);line-height:1.8;color:#8ab}
+.h{font-family:'Rajdhani',sans-serif;font-size:.78em;color:rgba(255,255,255,.2);
+   background:rgba(255,255,255,.04);border-radius:8px;padding:5px 10px;
+   text-align:center;margin-top:12px}
 </style>
 <div class="sc" id="sc"><div class="cd" id="cd">
-  <div><div class="t">꒰✩‿✩꒱ DATA INFO</div>
-  <div class="b"><b>Coverage:</b> Through Summer 2025<br><b>Source:</b> UCSB Registrar + RMP<br><b>Built by:</b> Joshua Chung</div></div>
+  <div>
+    <div class="t">( ˘▽˘)っ♨ DATA INFO</div>
+    <div class="b">
+      <b>Coverage:</b> Through Summer 2025<br>
+      <b>Source:</b> UCSB Registrar + RMP<br>
+      <b>Built by:</b> Joshua Chung
+    </div>
+  </div>
   <div class="h">Hover to tilt ↗</div>
 </div></div>
 <script>
@@ -571,7 +580,7 @@ sc.addEventListener('mousemove',e=>{const r=sc.getBoundingClientRect();
   cd.style.transform=`rotateY(${(e.clientX-r.left-r.width/2)/10}deg) rotateX(${-(e.clientY-r.top-r.height/2)/8}deg)`;});
 sc.addEventListener('mouseleave',()=>{cd.style.transform='';});
 </script>
-""", height=270)
+""", height=240)
 
 
 def render_linkedin_card():
@@ -582,9 +591,10 @@ def render_linkedin_card():
 .sc{perspective:800px;width:100%;height:80px;display:flex;justify-content:center;align-items:center}
 a{width:90%;height:58px;display:flex;align-items:center;justify-content:center;
   background:#0077b5;border-radius:14px;border:1.5px solid rgba(255,215,0,.4);
-  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05em;color:white;
+  font-family:'Rajdhani',sans-serif;font-weight:700;
+  font-size:clamp(.85em,1.5vw,1.05em);color:white;white-space:nowrap;
   text-decoration:none;transform-style:preserve-3d;transition:transform .1s,background .2s;
-  box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  box-shadow:0 8px 24px rgba(0,0,0,.4);padding:0 16px;overflow:hidden;text-overflow:ellipsis}
 a:hover{background:#0087cc}
 </style>
 <div class="sc" id="sc">
@@ -915,7 +925,7 @@ sc.addEventListener('mouseleave',()=>{{cd.style.transform='rotateY(0) rotateX(0)
                    .sort_values("Avg GPA", ascending=False))
         summary["Avg GPA"] = summary["Avg GPA"].map("{:.2f}".format)
         st.markdown('<div style="font-family:Orbitron,sans-serif;font-size:.72em;color:#FFD700;'
-                    'letter-spacing:2px;margin:14px 0 8px;">꒰✩‿✩꒱ COURSE SUMMARY</div>',
+                    'letter-spacing:2px;margin:14px 0 8px;">( ˘▽˘)っ♨ COURSE SUMMARY</div>',
                     unsafe_allow_html=True)
         st.dataframe(summary, hide_index=True, use_container_width=True)
 
@@ -1368,7 +1378,7 @@ let f = 0;
 
                     rmp_pill = ('<span style="font-size:.7em;color:#FFD700;background:rgba(255,215,0,.08);'
                                 'border:1px solid rgba(255,215,0,.22);padding:2px 10px;border-radius:12px;'
-                                'margin-left:8px;">꒰✩‿✩꒱ RMP</span>' if has_rmp else "")
+                                'margin-left:8px;">( ˘▽˘)っ♨ RMP</span>' if has_rmp else "")
                     txt_col = "#000" if status == "EASY" else "#fff"
                     st.markdown(
                         f'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">'
@@ -1415,7 +1425,7 @@ let f = 0;
 .desc{font-family:'Rajdhani',sans-serif;font-size:.95em;color:#8ab;line-height:1.55}
 </style>
 <div class="sc" id="sc"><div class="cd" id="cd">
-  <div class="icon">꒰✩‿✩꒱</div>
+  <div class="icon">( ˘▽˘)っ♨</div>
   <div>
     <div class="title">MY QUARTER — INSTANT SCHEDULE INSIGHTS</div>
     <div class="desc">Upload a screenshot of your UCSB GOLD schedule.
@@ -1437,7 +1447,7 @@ sc.addEventListener('mouseleave',()=>{cd.style.transform='';});
   <span style="font-family:'Orbitron',sans-serif;font-size:.75em;color:#5bb8ff;letter-spacing:1px;">HOW TO USE</span><br>
   1. Go to <b style="color:#fff">UCSB GOLD</b> → <b style="color:#fff">My Class Schedule</b><br>
   2. Take a <b style="color:#fff">screenshot</b> of the full schedule table<br>
-  3. Upload it below — OCR scans it instantly, no API key needed ꒰✩‿✩꒱<br>
+  3. Upload it below — OCR scans it instantly, no API key needed ( ˘▽˘)っ♨<br>
   <span style="font-size:.85em;color:#445;">
     Deployment note: add <code>pytesseract</code> + <code>Pillow</code> to requirements.txt
     and <code>tesseract-ocr</code> to packages.txt
