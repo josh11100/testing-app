@@ -107,6 +107,24 @@ section[data-testid="stMain"] > div:first-child {
     border-color: rgba(255,215,0,0.6) !important;
     color: #FFD700 !important;
 }
+/* Remove white focus outline / tooltip box on buttons */
+.stButton > button:focus,
+.stButton > button:focus-visible,
+.stButton > button:focus:not(:active) {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: rgba(0,116,217,0.5) !important;
+}
+/* Hide Streamlit's native tooltip popup */
+[data-testid="tooltipHoverTarget"],
+div[class*="tooltip"],
+div[data-baseweb="tooltip"],
+[role="tooltip"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
 
 /* ── Inputs ── */
 .stTextInput > div > div > input, .stSelectbox > div > div {
@@ -237,7 +255,7 @@ def make_join_key(name: str) -> str:
 # ─────────────────────────────────────────────
 #  DATA LOADING
 # ─────────────────────────────────────────────
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_data():
     def find(fname):
         for p in [fname, os.path.join("data", fname)]:
@@ -245,14 +263,23 @@ def load_data():
                 return p
         return None
 
-    grades_path = find("courseGrades.csv")
-    rmp_path    = find("rmp_final_data.csv")
+    # Support split CSV files, single CSV, or parquet
+    rmp_path = find("rmp_final_data.csv")
 
-    if not grades_path:
-        st.error("Cannot find courseGrades.csv — put it in the same folder or a 'data/' subfolder.")
+    part1 = find("courseGrades_part1.csv")
+    part2 = find("courseGrades_part2.csv")
+    single_parquet = find("courseGrades.parquet")
+    single_csv = find("courseGrades.csv")
+
+    if part1 and part2:
+        df = pd.concat([pd.read_csv(part1), pd.read_csv(part2)], ignore_index=True)
+    elif single_parquet:
+        df = pd.read_parquet(single_parquet)
+    elif single_csv:
+        df = pd.read_csv(single_csv)
+    else:
+        st.error("Cannot find grade data files — put courseGrades_part1.csv + courseGrades_part2.csv in the same folder.")
         st.stop()
-
-    df = pd.read_csv(grades_path)
     df.columns = [c.strip().lower() for c in df.columns]
 
     def extract_num(s):
@@ -266,7 +293,17 @@ def load_data():
         if col in df.columns:
             df[col] = df[col].astype(str).str.upper().str.strip()
 
+    # Normalize internal whitespace in course names (e.g. "PSTAT   100" → "PSTAT 100")
+    df["course"] = df["course"].str.replace(r'\s+', ' ', regex=True).str.strip()
+
     df["join_key"] = df["instructor"].apply(make_join_key)
+
+    # Build known-lastnames set for OCR fused-token detection in clean_instructor_name
+    global _KNOWN_LASTNAMES
+    _KNOWN_LASTNAMES = set(
+        df["instructor"].astype(str).str.upper().str.strip()
+        .str.split().str[0].dropna().unique()
+    )
 
     rmp_lookup = {}
 
@@ -913,22 +950,20 @@ sc.addEventListener('mouseleave',()=>{{cd.style.transform='rotateY(0) rotateX(0)
         st.dataframe(summary, hide_index=True, use_container_width=True)
 
 
-# ─────────────────────────────────────────────
-#  TEXT-BASED SCHEDULE PARSER  (regex)
-# ─────────────────────────────────────────────
+# Built from the grades DB on load — used to detect fused OCR names like "YUG" → "YU G"
+_KNOWN_LASTNAMES: set = set()
+
+
 def clean_instructor_name(raw: str) -> str:
     """
     Robustly clean an instructor name extracted from OCR or copy-paste.
-    Handles: junk characters, bracket noise, extra spaces, missing initials,
-    OCR artifacts like }] or |, numbers leaking in, hyphenated names like Y-D, etc.
-    Returns cleaned LASTNAME F M style string, or "" if invalid.
+    Handles: junk chars, hyphenated initials (Y-D→Y D), fused OCR tokens (YUG→YU G).
 
     GOLD format examples:
         WANG Y-D        → WANG Y D
         GARFIELD P M    → GARFIELD P M
-        MOEHLIS J M     → MOEHLIS J M
-        NAKAYAMA M T    → NAKAYAMA M T
-        GARFIELD P M ]  → GARFIELD P M
+        YUG             → YU G  (OCR fused last name + initial on yellow row)
+        XIAOT           → XIAO T
         }SMITH A        → SMITH A
     """
     if not raw:
@@ -936,37 +971,45 @@ def clean_instructor_name(raw: str) -> str:
 
     s = raw.upper().strip()
 
-    # Replace hyphens BETWEEN single letters with a space (e.g. Y-D → Y D)
-    # This handles hyphenated initials like "Y-D" or "M-T"
+    # Replace hyphens BETWEEN single letters (e.g. Y-D → Y D)
     s = re.sub(r'\b([A-Z])-([A-Z])\b', r'\1 \2', s)
 
-    # Remove anything that isn't a letter or space (strips }, ], |, digits, punctuation)
+    # Remove non-letter/space chars
     s = re.sub(r"[^A-Z\s]", " ", s)
-
-    # Collapse multiple spaces
     s = re.sub(r"\s+", " ", s).strip()
 
-    # Split into tokens, drop any that have no letters
     tokens = [t for t in s.split() if t.isalpha()]
-
     if not tokens:
         return ""
 
-    # GOLD name format: first token = last name (can be long), rest = initials (1 char each)
-    # Anything after the last name that is 1 character is an initial
+    # ── Fused-token fix ───────────────────────────────────────────────────────
+    # OCR on colored/yellow rows sometimes drops spaces: "YU G" → "YUG", "XIAO T" → "XIAOT"
+    # Detect: single token, NOT in known lastnames, but its prefix IS a known lastname
+    # and the suffix is exactly 1 letter → split it back out
+    if len(tokens) == 1 and len(tokens[0]) >= 3 and _KNOWN_LASTNAMES:
+        tok = tokens[0]
+        if tok not in _KNOWN_LASTNAMES:
+            # Try splitting off trailing 1 or 2 chars as initials
+            for split_at in [-1, -2]:
+                prefix = tok[:split_at]
+                suffix = tok[split_at:]
+                if (prefix in _KNOWN_LASTNAMES
+                        and len(suffix) <= 2
+                        and all(len(c) == 1 for c in suffix)):
+                    tokens = [prefix] + list(suffix)
+                    break
+
     last = tokens[0]
     initials = []
     for t in tokens[1:]:
         if len(t) == 1:
             initials.append(t)
-        # Longer token after last name = probably noise or second last-name word — stop
         else:
             break
         if len(initials) >= 2:
             break
 
-    parts = [last] + initials
-    return " ".join(parts)
+    return " ".join([last] + initials)
 
 
 def parse_gold_schedule(text: str) -> list[dict]:
@@ -977,8 +1020,13 @@ def parse_gold_schedule(text: str) -> list[dict]:
     results = []
     lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
 
-    # Course header: "DEPT NUM - TITLE"  e.g. "MATH 3A - CALC WITH APPLI 1"
-    course_pat  = re.compile(r'^([A-Z][A-Z\s&]+?)\s+(\d+[A-Z]*)\s*[-–]\s*(.+)$')
+    # Course header variations from OCR:
+    # Normal:      "PSTAT 126 - REGRESSION ANALYSIS"
+    # Yellow row:  "PSTAT 100 DS_CONC&ANLS"  or  "PSTAT 100- DS_CONC&ANLS"  (dash may be missing/mangled)
+    # So we match: DEPT NUM optionally followed by dash/space and title
+    course_pat  = re.compile(
+        r'^([A-Z][A-Z\s&_]+?)\s+(\d+[A-Z0-9]*)\s*[-–]?\s*(.*)$'
+    )
     # Section line starts with a 5-digit enrollment code
     section_pat = re.compile(r'^\d{5}\b')
     # Days pattern — used to find where instructor name ends
@@ -1019,12 +1067,11 @@ def parse_gold_schedule(text: str) -> list[dict]:
             # but only if we haven't already captured an instructor for this course
             pass
 
-    # Deduplicate — keep first occurrence of each (course, instructor) pair
-    seen, unique = set(), []
+    # Deduplicate — keep only ONE entry per course (the first/primary instructor)
+    seen_course, unique = set(), []
     for r in results:
-        key = (r["course"], r["instructor"])
-        if key not in seen:
-            seen.add(key)
+        if r["course"] not in seen_course:
+            seen_course.add(r["course"])
             unique.append(r)
     return unique
 
@@ -1054,10 +1101,24 @@ def parse_schedule_from_image(image_bytes: bytes) -> list[dict]:
         return []
 
     try:
-        image    = Image.open(io.BytesIO(image_bytes))
-        # Upscale for better OCR accuracy on small/retina screenshots
-        w, h     = image.size
-        image    = image.resize((w * 2, h * 2), Image.LANCZOS)
+        from PIL import Image, ImageEnhance, ImageFilter
+        import pytesseract
+    except ImportError:
+        st.error("Missing packages. Add 'pytesseract' and 'Pillow' to requirements.txt, "
+                 "and 'tesseract-ocr' to packages.txt (Streamlit Cloud).")
+        return []
+
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        # Upscale for better OCR accuracy
+        w, h  = image.size
+        image = image.resize((w * 2, h * 2), Image.LANCZOS)
+        # Convert to grayscale — removes yellow background bias that causes tesseract
+        # to skip or mangle highlighted rows
+        image = image.convert("L")
+        # Boost contrast so text on yellow/colored backgrounds is as clear as on white
+        image = ImageEnhance.Contrast(image).enhance(2.0)
+        image = ImageEnhance.Sharpness(image).enhance(1.5)
         raw_text = pytesseract.image_to_string(image, config="--psm 6")
         return parse_gold_schedule(raw_text)
     except Exception as ex:
@@ -1266,15 +1327,31 @@ let f = 0;
         components.html("""
 <script>
 (function() {
-    function clickTab() {
-        const tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
-        if (tabs.length >= 2) {
-            tabs[1].click();
+    var attempts = 0;
+    var maxAttempts = 20;
+    function clickSearchTab() {
+        try {
+            var tabs = window.parent.document.querySelectorAll('[data-baseweb="tab"]');
+            if (tabs.length >= 2) {
+                tabs[1].click();
+                return true;
+            }
+        } catch(e) {}
+        return false;
+    }
+    function tryClick() {
+        if (attempts >= maxAttempts) return;
+        attempts++;
+        if (!clickSearchTab()) {
+            setTimeout(tryClick, 100);
         }
     }
-    setTimeout(clickTab, 50);
-    setTimeout(clickTab, 200);
-    setTimeout(clickTab, 500);
+    // Start immediately and keep retrying every 100ms until it works
+    tryClick();
+    // Also fire at fixed intervals as backup
+    [50, 200, 400, 800, 1200].forEach(function(ms) {
+        setTimeout(clickSearchTab, ms);
+    });
 })();
 </script>
 """, height=0)
@@ -1312,26 +1389,26 @@ let f = 0;
 </div>""", unsafe_allow_html=True)
 
     # ── SEARCH TOOL ─────────────────────────────────────────────────────────
-    with tab_search:
-        with st.sidebar:
-            st.markdown("""
+    # ── SIDEBAR (always rendered regardless of active tab) ───────────────────
+    with st.sidebar:
+        st.markdown("""
 <div style="font-family:'Orbitron',sans-serif;color:#FFD700;font-size:.82em;letter-spacing:2px;
             padding:10px 0 6px;border-bottom:1px solid rgba(255,215,0,.2);margin-bottom:16px;">
   FILTERS</div>""", unsafe_allow_html=True)
-            all_depts     = [""] + sorted(full_df["dept"].unique().tolist())
-            selected_dept = st.selectbox("Department", options=all_depts, index=0,
-                                         key="dept_q", on_change=filter_changed,
-                                         format_func=lambda x: "All Departments" if x == "" else x)
-            course_q = st.text_input("Course Number (e.g. 120A, 5A, 10)",
-                                     key="course_q", on_change=filter_changed).strip().upper()
-            prof_q   = st.text_input("Professor Name",
-                                     key="prof_q", on_change=filter_changed).strip().upper()
-            st.button("(シ_ _)シ  Clear Filters", on_click=clear_filters, use_container_width=True)
-            st.markdown("---")
-            st.markdown('<div style="font-family:Rajdhani,sans-serif;font-size:.88em;color:#556;line-height:1.7;">'
-                        '<b style="color:#FFD700;">RMP</b> badge = click professor name to view '
-                        'RateMyProfessors data + GPA history.</div>', unsafe_allow_html=True)
-            st.markdown("""
+        all_depts     = [""] + sorted(full_df["dept"].unique().tolist())
+        selected_dept = st.selectbox("Department", options=all_depts, index=0,
+                                     key="dept_q", on_change=filter_changed,
+                                     format_func=lambda x: "All Departments" if x == "" else x)
+        course_q = st.text_input("Course Number (e.g. 120A, 5A, 10)",
+                                 key="course_q", on_change=filter_changed).strip().upper()
+        prof_q   = st.text_input("Professor Name",
+                                 key="prof_q", on_change=filter_changed).strip().upper()
+        st.button("(シ_ _)シ  Clear Filters", on_click=clear_filters, use_container_width=True)
+        st.markdown("---")
+        st.markdown('<div style="font-family:Rajdhani,sans-serif;font-size:.88em;color:#556;line-height:1.7;">'
+                    '<b style="color:#FFD700;">RMP</b> badge = click professor name to view '
+                    'RateMyProfessors data + GPA history.</div>', unsafe_allow_html=True)
+        st.markdown("""
 <div style="margin-top:16px;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.15);
             border-radius:12px;padding:12px 14px;font-family:'Rajdhani',sans-serif;">
   <div style="font-size:.78em;color:#FFD700;font-weight:700;letter-spacing:1px;margin-bottom:4px;">
@@ -1343,6 +1420,7 @@ let f = 0;
   </div>
 </div>""", unsafe_allow_html=True)
 
+    with tab_search:
         if st.session_state.sel_prof_key:
             lk        = st.session_state.sel_prof_key
             info      = rmp_lookup.get(lk, {})
@@ -1406,8 +1484,7 @@ let f = 0;
                     if has_rmp:
                         pb_col, _ = st.columns([2, 3])
                         with pb_col:
-                            if st.button(f"{prof_name}", key=f"pb_{idx}",
-                                         help="Click to view RMP profile + GPA history"):
+                            if st.button(f"{prof_name}", key=f"pb_{idx}"):
                                 st.session_state.sel_prof_key    = jk
                                 st.session_state.sel_prof_name   = prof_name
                                 st.session_state.sel_prof_course = row["course"]
@@ -1596,41 +1673,58 @@ sc.addEventListener('mouseleave',()=>{cd.style.transform='';});
                     return exact
 
                 unique_jks = candidates["join_key"].unique()
+
+                # Only one candidate — always use it
                 if len(unique_jks) == 1:
                     return unique_jks[0]
 
-                # Multiple people share the last name — use first initial to disambiguate
-                # Score each candidate: exact first-initial match wins
+                # Multiple candidates — score by first name similarity
                 first_initial = first[0] if first else ""
                 best, best_score = exact, -1
                 for jk_cand in unique_jks:
-                    _, cand_first = jk_cand.split("||", 1)[0], jk_cand.split("||", 1)[1]
-                    cand_initial  = cand_first[0] if cand_first else ""
-                    # Exact first-initial match is a strong signal
+                    cand_first = jk_cand.split("||", 1)[1]
+                    cand_initial = cand_first[0] if cand_first else ""
+                    # Initial match: "T" matches "TING", "G" matches "GEORGE" etc.
                     if first_initial and cand_initial == first_initial:
-                        score = name_similarity(first, cand_first) + 1.0  # boost
+                        score = name_similarity(first, cand_first) + 1.0
                     elif not first_initial:
-                        score = 0.5  # no info, neutral
+                        score = 0.5
                     else:
                         score = name_similarity(first, cand_first)
                     if score > best_score:
                         best_score = score
                         best = jk_cand
 
-                # Only return a fuzzy match if it's meaningfully better than nothing
-                # If first initial was provided but no candidate matched it, return exact
-                # (no match) rather than returning the wrong person
-                if first_initial and best_score < 0.5:
-                    return exact
-                return best
+                # Return best match as long as we found a reasonable one
+                if best_score >= 0.3:
+                    return best
+                # Last resort: if only initials and no good match, try first-initial only
+                if first_initial:
+                    for jk_cand in unique_jks:
+                        cand_first = jk_cand.split("||", 1)[1]
+                        if cand_first.startswith(first_initial):
+                            return jk_cand
+                return exact
 
             jk = best_jk_match(instructor, full_df)
 
-            specific_hist = full_df[
+            # Match by full course name first (exact), then fall back to num contains
+            course_exact = full_df[
                 (full_df["join_key"] == jk) &
-                (full_df["course"].str.contains(entry["num"], na=False))].copy()
+                (full_df["course"] == course_name)].copy()
+            course_num_match = full_df[
+                (full_df["join_key"] == jk) &
+                (full_df["course"].str.contains(r'\b' + re.escape(entry["num"]) + r'\b', na=False))].copy()
             all_prof_hist = full_df[full_df["join_key"] == jk].copy()
-            hist_for_gpa  = specific_hist if not specific_hist.empty else all_prof_hist
+
+            if not course_exact.empty:
+                specific_hist = course_exact
+            elif not course_num_match.empty:
+                specific_hist = course_num_match
+            else:
+                specific_hist = pd.DataFrame()
+
+            hist_for_gpa = specific_hist if not specific_hist.empty else all_prof_hist
 
             avg_gpa              = hist_for_gpa[gpa_col].mean() if not hist_for_gpa.empty else None
             status, clr, shd     = gpa_badge(avg_gpa) if avg_gpa else ("N/A","#666","rgba(0,0,0,0)")
@@ -1642,8 +1736,8 @@ sc.addEventListener('mouseleave',()=>{cd.style.transform='';});
             rmp_diff   = rmp_info.get("difficulty", "N/A")
             rmp_url    = rmp_info.get("url", "")
             rmp_ta     = rmp_info.get("take_again", "N/A")
-            ta_str     = (f"{rmp_ta}%" if rmp_ta and str(rmp_ta) != "nan"
-                          and "%" not in str(rmp_ta) else str(rmp_ta))
+            ta_str     = "N/A" if not rmp_ta or str(rmp_ta).lower() in ("nan", "n/a", "", "none") \
+                         else (f"{rmp_ta}%" if "%" not in str(rmp_ta) else str(rmp_ta))
             try:
                 r_clr = "#2ECC40" if float(rmp_rating) >= 4.0 else \
                         ("#FFDC00" if float(rmp_rating) >= 3.0 else "#FF4136")
