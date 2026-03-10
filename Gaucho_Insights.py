@@ -20,32 +20,15 @@ st.markdown("""
 .stApp { background: #000814 !important; color: #fff !important; }
 html, body { background: #000814 !important; }
 
-/* Hide the app filename shown in sidebar header */
+/* Hide the app filename shown in sidebar header and top bar */
 [data-testid="stSidebarHeader"],
-[data-testid="stSidebarNav"],
 header[data-testid="stHeader"],
 #MainMenu,
 .stDeployButton,
 [data-testid="stToolbar"],
 [data-testid="stDecoration"],
 [data-testid="stStatusWidget"],
-footer,
-.css-1outpf7,
-.css-17ziqus,
-section[data-testid="stSidebar"] > div:first-child > div:first-child {
-    visibility: hidden !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-}
-
-/* Nuclear option — hide any element in sidebar above FILTERS that contains the filename */
-section[data-testid="stSidebar"] header { display: none !important; }
-section[data-testid="stSidebar"] > div > div > div:first-child:not([class*="block"]) {
-    display: none !important;
-}
+footer { display: none !important; }
 .stApp > * { position: relative; z-index: 1; }
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
@@ -1093,16 +1076,12 @@ def main():
 <script>
 (function hideAppName() {
     function tryHide() {
-        // Target the sidebar header area in the parent document
         try {
             const parent = window.parent.document;
-            // Hide stSidebarHeader
+            // Only hide stSidebarHeader (the filename bar at the very top)
             parent.querySelectorAll('[data-testid="stSidebarHeader"]')
                   .forEach(el => el.style.display = 'none');
-            // Hide any element in the sidebar that contains the app filename text
-            parent.querySelectorAll('section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] > div > div > div > div > p')
-                  .forEach(el => { el.style.display = 'none'; });
-            // Hide the top bar entirely
+            // Hide the top header bar (share/github icons row)
             parent.querySelectorAll('header[data-testid="stHeader"]')
                   .forEach(el => el.style.display = 'none');
         } catch(e) {}
