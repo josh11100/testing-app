@@ -22,14 +22,30 @@ html, body { background: #000814 !important; }
 
 /* Hide the app filename shown in sidebar header */
 [data-testid="stSidebarHeader"],
+[data-testid="stSidebarNav"],
 header[data-testid="stHeader"],
 #MainMenu,
 .stDeployButton,
 [data-testid="stToolbar"],
-footer { visibility: hidden !important; height: 0 !important; }
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+footer,
+.css-1outpf7,
+.css-17ziqus,
+section[data-testid="stSidebar"] > div:first-child > div:first-child {
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
 
-/* Also hide the top app name text */
-[data-testid="stAppViewBlockContainer"] > div:first-child { display: none !important; }
+/* Nuclear option — hide any element in sidebar above FILTERS that contains the filename */
+section[data-testid="stSidebar"] header { display: none !important; }
+section[data-testid="stSidebar"] > div > div > div:first-child:not([class*="block"]) {
+    display: none !important;
+}
 .stApp > * { position: relative; z-index: 1; }
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
@@ -1071,6 +1087,32 @@ def parse_schedule_from_image(image_bytes: bytes) -> list[dict]:
 def main():
     full_df, gpa_col, rmp_lookup = load_data()
     render_hero()
+
+    # Hide the sidebar app name via JS — targets it by hunting the DOM
+    components.html("""
+<script>
+(function hideAppName() {
+    function tryHide() {
+        // Target the sidebar header area in the parent document
+        try {
+            const parent = window.parent.document;
+            // Hide stSidebarHeader
+            parent.querySelectorAll('[data-testid="stSidebarHeader"]')
+                  .forEach(el => el.style.display = 'none');
+            // Hide any element in the sidebar that contains the app filename text
+            parent.querySelectorAll('section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] > div > div > div > div > p')
+                  .forEach(el => { el.style.display = 'none'; });
+            // Hide the top bar entirely
+            parent.querySelectorAll('header[data-testid="stHeader"]')
+                  .forEach(el => el.style.display = 'none');
+        } catch(e) {}
+    }
+    tryHide();
+    setTimeout(tryHide, 300);
+    setTimeout(tryHide, 1000);
+})();
+</script>
+""", height=0)
 
     # ── 3D Animated Space Background ─────────────────────────────────────────
     # Strategy: render Three.js inside the iframe, then use window.parent JS
