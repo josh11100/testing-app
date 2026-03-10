@@ -65,6 +65,16 @@ section[data-testid="stMain"] > div:first-child {
 [data-testid="stSidebar"] * { color: #ccc !important; font-family: 'Rajdhani', sans-serif !important; }
 [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #FFD700 !important; font-family: 'Orbitron', sans-serif !important; font-size: 0.9em !important; }
 
+/* Tighten sidebar internal spacing */
+[data-testid="stSidebar"] .block-container,
+[data-testid="stSidebar"] > div > div > div { padding-top: 1rem !important; }
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
+[data-testid="stSidebar"] .stSelectbox,
+[data-testid="stSidebar"] .stTextInput { margin-bottom: 0.2rem !important; }
+[data-testid="stSidebar"] label { margin-bottom: 2px !important; font-size: 0.85em !important; }
+[data-testid="stSidebar"] hr { margin: 0.5rem 0 !important; }
+[data-testid="stSidebar"] .stButton { margin-top: 0.3rem !important; }
+
 /* ── Cards ── */
 [data-testid="stVerticalBlockBorderWrapper"] {
     background: rgba(0,20,45,0.8) !important;
