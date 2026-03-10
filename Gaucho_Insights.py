@@ -65,13 +65,18 @@ section[data-testid="stMain"] > div:first-child {
 [data-testid="stSidebar"] * { color: #ccc !important; font-family: 'Rajdhani', sans-serif !important; }
 [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #FFD700 !important; font-family: 'Orbitron', sans-serif !important; font-size: 0.9em !important; }
 
-/* Space out sidebar filter elements evenly */
+/* Sidebar scroll & spacing */
+[data-testid="stSidebar"] > div:first-child {
+    overflow-y: auto !important;
+    height: 100vh !important;
+    padding-bottom: 2rem !important;
+}
 [data-testid="stSidebar"] > div > div > div { padding-top: 1.5rem !important; }
-[data-testid="stSidebar"] .stSelectbox { margin-bottom: 1.2rem !important; }
-[data-testid="stSidebar"] .stTextInput { margin-bottom: 1.2rem !important; }
-[data-testid="stSidebar"] .stButton { margin-top: 0.5rem !important; margin-bottom: 1.2rem !important; }
+[data-testid="stSidebar"] .stSelectbox { margin-bottom: 0.8rem !important; }
+[data-testid="stSidebar"] .stTextInput { margin-bottom: 0.8rem !important; }
+[data-testid="stSidebar"] .stButton { margin-top: 0.2rem !important; margin-bottom: 0.8rem !important; }
 [data-testid="stSidebar"] label { margin-bottom: 4px !important; }
-[data-testid="stSidebar"] hr { margin: 1.5rem 0 !important; }
+[data-testid="stSidebar"] hr { margin: 1rem 0 !important; }
 
 /* ── Cards ── */
 [data-testid="stVerticalBlockBorderWrapper"] {
@@ -121,67 +126,27 @@ section[data-testid="stMain"] > div:first-child {
    MOBILE / NARROW SCREEN FIXES
    ════════════════════════════════════ */
 
-/* Stack home page columns on small screens */
-@media (max-width: 768px) {
-    /* Force Streamlit columns to stack vertically */
+@media (max-width: 640px) {
+    /* Stack search result info+chart columns on mobile */
     [data-testid="stHorizontalBlock"] {
         flex-direction: column !important;
+        flex-wrap: wrap !important;
     }
     [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
         width: 100% !important;
         flex: 1 1 100% !important;
         min-width: 0 !important;
     }
-
     /* Shrink tab font on very small screens */
     .stTabs [data-baseweb="tab"] {
-        font-size: 11px !important;
-        padding: 0 8px !important;
-        height: 40px !important;
+        font-size: 10px !important;
+        padding: 0 6px !important;
+        height: 38px !important;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px !important;
-        padding: 6px 8px !important;
+        gap: 4px !important;
+        padding: 4px 6px !important;
     }
-
-    /* Make course filter buttons wrap tighter */
-    div[data-testid="stHorizontalBlock"] {
-        flex-wrap: wrap !important;
-    }
-
-    /* Shrink hero title on mobile */
-    .hero-title { font-size: 1.4rem !important; }
-
-    /* Ensure images don't overflow */
-    img { max-width: 100% !important; height: auto !important; }
-
-    /* Stat boxes in quarter tab — wrap on mobile */
-    .quarter-stats { flex-direction: column !important; }
-
-    /* Reduce padding on containers */
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 12px !important;
-        margin-bottom: 8px !important;
-    }
-
-    /* Plotly charts — don't let them overflow */
-    .js-plotly-plot { max-width: 100% !important; overflow: hidden !important; }
-
-    /* Welcome card grid — single column on mobile */
-    .grid { grid-template-columns: 1fr !important; }
-
-    /* Info / linkedin cards full width */
-    .sc { width: 100% !important; }
-    .cd { width: 100% !important; }
-}
-
-/* Medium screens (tablet) */
-@media (max-width: 1024px) and (min-width: 769px) {
-    .stTabs [data-baseweb="tab"] {
-        font-size: 14px !important;
-        padding: 0 14px !important;
-    }
-    .stTabs [data-baseweb="tab-list"] { gap: 12px !important; }
 }
 
 /* Prevent column overflow at any screen size */
@@ -385,7 +350,7 @@ def load_data():
 # ─────────────────────────────────────────────
 #  SESSION STATE
 # ─────────────────────────────────────────────
-for key in ["sel_prof_key", "sel_prof_name"]:
+for key in ["sel_prof_key", "sel_prof_name", "sel_prof_course"]:
     if key not in st.session_state:
         st.session_state[key] = None
 for key in ["dept_q", "course_q", "prof_q"]:
@@ -513,6 +478,10 @@ p{font-family:'Rajdhani',sans-serif;font-size:clamp(.95em,2vw,1.15em);line-heigh
         <div class="box" style="border-left:4px solid #FF4136;padding-left:18px">
           <div class="bt" style="color:#FF4136">STRESSFUL ‹ 3.0 avg GPA</div>
           <div class="bb">Historically tough. Prepare carefully or choose a different section.</div>
+        </div>
+        <div class="box" style="border-left:4px solid rgba(255,215,0,.4);padding-left:18px;background:rgba(255,215,0,.04)">
+          <div class="bt" style="color:rgba(255,215,0,.7)">💻 BEST ON DESKTOP</div>
+          <div class="bb" style="color:#778;">For the full experience, open on a <b style="color:#99a">computer or laptop</b>. Mobile layout may vary.</div>
         </div>
       </div>
     </div>
@@ -918,6 +887,9 @@ sc.addEventListener('mouseleave',()=>{{cd.style.transform='rotateY(0) rotateX(0)
                     st.rerun()
 
         # Show/hide all controls
+        searched_course = st.session_state.get("sel_prof_course", "")
+        # Pin the searched course — fall back to first course if not found in this prof's history
+        pin_course = searched_course if searched_course in courses else courses[0]
         ctrl_col1, ctrl_col2, _ = st.columns([1, 1, 4])
         with ctrl_col1:
             if st.button("◉ Show All", key=f"show_all_{prof_key}", use_container_width=True):
@@ -925,7 +897,7 @@ sc.addEventListener('mouseleave',()=>{{cd.style.transform='rotateY(0) rotateX(0)
                 st.rerun()
         with ctrl_col2:
             if st.button("○ Hide All", key=f"hide_all_{prof_key}", use_container_width=True):
-                st.session_state[state_key] = {courses[0]}
+                st.session_state[state_key] = {pin_course}
                 st.rerun()
 
         summary = (hist.groupby("course")[gpa_col].agg(["mean","count"]).reset_index()
@@ -1097,7 +1069,42 @@ def main():
     full_df, gpa_col, rmp_lookup = load_data()
     render_hero()
 
-    # Hide the sidebar app name via JS — targets it by hunting the DOM
+    # ── Mobile warning banner ─────────────────────────────────────────────
+    components.html("""
+<script>
+(function() {
+    if (window.parent.innerWidth < 768) {
+        const banner = window.parent.document.createElement('div');
+        banner.id = 'mobile-warn';
+        banner.innerHTML = `
+            <span style="font-size:1.3em;">💻</span>
+            <span style="flex:1">
+                <strong style="color:#FFD700;font-family:'Orbitron',sans-serif;font-size:.8em;letter-spacing:1px;">
+                BEST ON DESKTOP
+                </strong><br>
+                <span style="font-size:.85em;color:#aac;">
+                Gaucho Insights is optimized for laptop/desktop. Some features may look off on mobile.
+                </span>
+            </span>
+            <span id="close-warn" style="cursor:pointer;font-size:1.2em;color:#556;padding-left:8px;">✕</span>
+        `;
+        banner.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+            background: rgba(0,10,30,0.97);
+            border-bottom: 1px solid rgba(255,215,0,0.3);
+            padding: 12px 18px;
+            display: flex; align-items: center; gap: 12px;
+            font-family: 'Rajdhani', sans-serif; color: #cde;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        `;
+        window.parent.document.body.appendChild(banner);
+        window.parent.document.getElementById('close-warn').onclick = () => {
+            banner.style.display = 'none';
+        };
+    }
+})();
+</script>
+""", height=0)
     components.html("""
 <script>
 (function hideAppName() {
@@ -1320,6 +1327,17 @@ let f = 0;
             st.markdown('<div style="font-family:Rajdhani,sans-serif;font-size:.88em;color:#556;line-height:1.7;">'
                         '<b style="color:#FFD700;">RMP</b> badge = click professor name to view '
                         'RateMyProfessors data + GPA history.</div>', unsafe_allow_html=True)
+            st.markdown("""
+<div style="margin-top:16px;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.15);
+            border-radius:12px;padding:12px 14px;font-family:'Rajdhani',sans-serif;">
+  <div style="font-size:.78em;color:#FFD700;font-weight:700;letter-spacing:1px;margin-bottom:4px;">
+    💻 BEST ON DESKTOP
+  </div>
+  <div style="font-size:.82em;color:#445;line-height:1.6;">
+    For the best experience, use a <b style="color:#556;">computer or laptop</b>.
+    Mobile layout may vary.
+  </div>
+</div>""", unsafe_allow_html=True)
 
         if st.session_state.sel_prof_key:
             lk        = st.session_state.sel_prof_key
@@ -1349,7 +1367,11 @@ let f = 0;
             st.warning("No results found. Try adjusting the filters.")
             return
 
-        df    = df.sort_values(["course","year"], ascending=[True,False])
+        # Sort: most recent first — year desc, then quarter desc (FALL > SUMMER > SPRING > WINTER)
+        q_order = {"FALL": 3, "SUMMER": 2, "SPRING": 1, "WINTER": 0}
+        df = df.copy()
+        df["_qord"] = df["quarter"].str.upper().map(q_order).fillna(0)
+        df = df.sort_values(["year", "_qord"], ascending=[False, False]).drop(columns=["_qord"])
         shown = df.head(25)
 
         st.markdown(f'<div style="font-family:Orbitron,sans-serif;font-size:.75em;'
@@ -1362,14 +1384,19 @@ let f = 0;
             prof_name        = row["instructor"]
             jk               = row.get("join_key","")
             has_rmp          = jk in rmp_lookup
+            txt_col          = "#000" if status == "EASY" else "#fff"
+            rmp_pill         = ('<span style="font-size:.7em;color:#FFD700;background:rgba(255,215,0,.08);'
+                                'border:1px solid rgba(255,215,0,.22);padding:2px 10px;border-radius:12px;'
+                                'margin-left:8px;">RMP</span>' if has_rmp else "")
 
             with st.container(border=True):
                 col_info, col_chart = st.columns([3, 2])
                 with col_info:
                     st.markdown(
-                        f'<div style="font-family:Orbitron,sans-serif;font-size:1.05em;font-weight:700;'
-                        f'color:#e8f4ff;margin-bottom:4px;">{row["course"]}'
-                        f'<span style="color:#445;font-size:.78em;margin-left:10px;">'
+                        f'<div style="font-family:Orbitron,sans-serif;font-size:clamp(.85em,2vw,1.05em);'
+                        f'font-weight:700;color:#e8f4ff;margin-bottom:4px;word-break:break-word;">'
+                        f'{row["course"]}'
+                        f'<span style="color:#445;font-size:.78em;margin-left:8px;">'
                         f'{row["quarter"]} {row["year"]}</span></div>', unsafe_allow_html=True)
 
                     if has_rmp:
@@ -1377,24 +1404,21 @@ let f = 0;
                         with pb_col:
                             if st.button(f"{prof_name}", key=f"pb_{idx}",
                                          help="Click to view RMP profile + GPA history"):
-                                st.session_state.sel_prof_key  = jk
-                                st.session_state.sel_prof_name = prof_name
+                                st.session_state.sel_prof_key    = jk
+                                st.session_state.sel_prof_name   = prof_name
+                                st.session_state.sel_prof_course = row["course"]
                                 st.rerun()
                     else:
-                        st.markdown(f'<div style="font-family:Rajdhani,sans-serif;font-size:1em;'
+                        st.markdown(f'<div style="font-family:Rajdhani,sans-serif;font-size:.95em;'
                                     f'color:#667;margin:4px 0 6px;">{prof_name}</div>',
                                     unsafe_allow_html=True)
 
-                    rmp_pill = ('<span style="font-size:.7em;color:#FFD700;background:rgba(255,215,0,.08);'
-                                'border:1px solid rgba(255,215,0,.22);padding:2px 10px;border-radius:12px;'
-                                'margin-left:8px;">RMP</span>' if has_rmp else "")
-                    txt_col = "#000" if status == "EASY" else "#fff"
                     st.markdown(
-                        f'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">'
-                        f'<span style="font-family:Orbitron,sans-serif;font-size:.88em;font-weight:700;'
-                        f'color:#cde;">GPA {gpa_val:.2f}</span>'
-                        f'<span style="background:{clr};color:{txt_col};padding:4px 14px;border-radius:20px;'
-                        f'font-size:.76em;font-weight:900;box-shadow:0 0 14px {shd};letter-spacing:1px;">'
+                        f'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">'
+                        f'<span style="font-family:Orbitron,sans-serif;font-size:clamp(.75em,2vw,.88em);'
+                        f'font-weight:700;color:#cde;">GPA {gpa_val:.2f}</span>'
+                        f'<span style="background:{clr};color:{txt_col};padding:3px 10px;border-radius:20px;'
+                        f'font-size:.74em;font-weight:900;box-shadow:0 0 14px {shd};letter-spacing:1px;white-space:nowrap;">'
                         f'{status}</span>{rmp_pill}</div>', unsafe_allow_html=True)
 
                 with col_chart:
@@ -1422,20 +1446,22 @@ let f = 0;
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}body{background:transparent;overflow:hidden}
-.sc{perspective:900px;width:100%;height:165px;display:flex;justify-content:center;align-items:center}
-.cd{width:96%;height:140px;background:linear-gradient(135deg,#001428 0%,#001e4a 60%,#002255 100%);
+.sc{perspective:900px;width:100%;display:flex;justify-content:center;align-items:center;padding:8px 0}
+.cd{width:96%;background:linear-gradient(135deg,#001428 0%,#001e4a 60%,#002255 100%);
     border-radius:18px;border:1.5px solid rgba(255,215,0,.4);
     box-shadow:0 16px 40px rgba(0,0,0,.5),inset 0 0 30px rgba(0,116,217,.06);
     transform-style:preserve-3d;transition:transform .1s ease;
-    padding:20px 26px;color:white;display:flex;align-items:center;gap:24px}
-.icon{font-size:2.4em;flex-shrink:0}
-.title{font-family:'Orbitron',sans-serif;font-size:.95em;font-weight:900;
-       color:#FFD700;margin-bottom:6px;text-shadow:0 0 10px rgba(255,215,0,.3)}
-.desc{font-family:'Rajdhani',sans-serif;font-size:.95em;color:#8ab;line-height:1.55}
+    padding:18px 20px;color:white;display:flex;align-items:flex-start;gap:16px;
+    overflow:hidden;word-break:break-word}
+.icon{font-size:clamp(1.4em,4vw,2.4em);flex-shrink:0;padding-top:2px}
+.title{font-family:'Orbitron',sans-serif;font-size:clamp(.7em,2vw,.95em);font-weight:900;
+       color:#FFD700;margin-bottom:6px;text-shadow:0 0 10px rgba(255,215,0,.3);
+       line-height:1.3}
+.desc{font-family:'Rajdhani',sans-serif;font-size:clamp(.82em,2vw,.95em);color:#8ab;line-height:1.55}
 </style>
 <div class="sc" id="sc"><div class="cd" id="cd">
   <div class="icon">( ˘▽˘)っ♨</div>
-  <div>
+  <div style="min-width:0;flex:1">
     <div class="title">MY QUARTER — INSTANT SCHEDULE INSIGHTS</div>
     <div class="desc">Upload a screenshot of your UCSB GOLD schedule.
     Local OCR reads it automatically — no API key, no cost.</div>
@@ -1447,7 +1473,7 @@ sc.addEventListener('mousemove',e=>{const r=sc.getBoundingClientRect();
   cd.style.transform=`rotateY(${(e.clientX-r.left-r.width/2)/30}deg) rotateX(${-(e.clientY-r.top-r.height/2)/20}deg)`;});
 sc.addEventListener('mouseleave',()=>{cd.style.transform='';});
 </script>
-""", height=185)
+""", height=160)
 
         st.markdown("""
 <div style="background:rgba(0,116,217,0.07);border:1px solid rgba(0,116,217,0.25);
@@ -1502,10 +1528,16 @@ sc.addEventListener('mouseleave',()=>{cd.style.transform='';});
         n_with_rmp = sum(1 for p in parsed if make_join_key(p["instructor"]) in rmp_lookup)
         avg_gpas   = []
         for p in parsed:
-            jk  = make_join_key(p["instructor"])
-            sub = full_df[full_df["join_key"] == jk]
+            jk          = make_join_key(p["instructor"])
+            course_name = p.get("course", "")   # e.g. "MATH 3B"
+            sub         = full_df[full_df["join_key"] == jk]
+            if course_name and not sub.empty:
+                course_sub = sub[sub["course"] == course_name]
+                if not course_sub.empty:
+                    sub = course_sub
             if not sub.empty:
-                avg_gpas.append(sub[gpa_col].mean())
+                # One representative value per course-professor pair (median across all their offerings of that class)
+                avg_gpas.append(sub[gpa_col].median())
         overall_avg             = sum(avg_gpas) / len(avg_gpas) if avg_gpas else None
         ov_status, ov_clr, _    = gpa_badge(overall_avg) if overall_avg else ("N/A","#666","")
 
